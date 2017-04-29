@@ -1,5 +1,6 @@
 function [ts,S] = simMC(u,Pi,initInd,nTs,N)
     %u :: NxK set of nodes
+
     %Pi :: NXN Markov transition matrix
     %initInd :: {0,1,...,N} initial node
     
@@ -37,5 +38,3 @@ function [ts,S] = simMC(u,Pi,initInd,nTs,N)
     end            
 end
 
-
-        

@@ -30,8 +30,8 @@ for ii=1:nS*N
     ttMat = [(1:N),(1:N)];
     for jj=1:nS*N
         %tMat(jj) = normpdf(u(jj)-(phi*u(ii)))*(w(jj)./omega(u(jj)));
-        tMat(jj) = normpdf(u(ttMat(jj))-(phiCell{floor(((ii-1)/N))+1}*u(ttMat(ii))))*...
-            Pi(floor(((ii-1)/N))+1,floor(((jj-1)/N))+1);
+        %tMat(jj) = normpdf(u(ttMat(jj))-(phiCell{floor(((ii-1)/N))+1}*u(ttMat(ii))))*...
+        %    Pi(floor(((ii-1)/N))+1,floor(((jj-1)/N))+1);
         tMat(jj) = exp(-((u(ttMat(jj))-phiCell{floor(((ii-1)/N))+1}*u(ttMat(ii))-barX)^2 -(u(ttMat(jj))-barX)^2))...
             *w(ttMat(jj))/sqrt(pi)*Pi(floor(((ii-1)/N))+1,floor(((jj-1)/N))+1);
     end

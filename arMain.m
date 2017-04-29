@@ -1,20 +1,23 @@
 %{
 SCRIPT: Approximate AR(1) 
 %}
+clear all
 
 %% Model Parameters: y_t = \phi y_t-1 + \sig \varepsilon_t
-phi = 0.9; %AR coefficient
-sig = 0.01; %std. dev of shock
+phi = 0.95; %AR coefficient
+sig = 0.03; %std. dev of shock
 barX = 0;
-N = 20; %Number of nodes
+N = 5; %Number of nodes
 %omega = @(x) normpdf(x); % Set omega to std. normal PDF
-
 
 %% Construct f(\bar(y)_k | x)
 
 %get nodes and weights via gauss-quadrature
 [u,w] = hernodes(N);
-xNodes = sqrt(2)*sig*u + barX;
+xNodes = sqrt(2)*sig*u + barX; %GH Nodes based on \sig_{\epsilon}
+%xNodes = sqrt(2)*(sig/sqrt(1-phi^2))*u + barX; %Use conditional variance
+%sigW = 0.5 + phi/4;
+%xNodes = sqrt(2)*(sigW*sig+(1-sigW)*(sig/sqrt(1-phi^2)))*u + barX;
 piMat = NaN(N); %Markov matrix for discretized process
 for ii=1:N
     tMat = NaN(N,1);
@@ -27,8 +30,8 @@ for ii=1:N
 end
 
 %% Check via simulation
-nSim = 1000;
-nTs = 1000;
+nSim = 350;
+nTs = 100000;
 
 tsCell = cell(nSim);
 %Simulate nSim series of nTs
@@ -61,44 +64,6 @@ end
 [mean(bbMat),prctile(bbMat,5),prctile(bbMat,95)]
 
 
-function [ts] = simMC(u,Pi,initInd,nTs,N)
-    %u :: Nx1 set of nodes
-    %Pi :: NXN Markov transition matrix
-    %initInd :: {0,1,...,N} initial node
-    
-    S = NaN(nTs,1);
-    ts = NaN(nTs,1);
-    if initInd==0
-        q = getStatMarkov(Pi);
-        tmp = rand;
-        tNdx = 1;
-        trig=0;
-        while (tNdx<=N)&&(trig==0)
-           if tmp<=sum(q(1:tNdx))
-               S(1) = tNdx;
-               ts(1) = u(tNdx);
-               trig = 1;
-           else
-               tNdx = tNdx + 1;
-           end
-        end
-    end
-    
-    for tt=2:nTs
-        tmp = rand;
-        tNdx = 1;
-        trig=0;
-        while (tNdx<=N)&&(trig==0)
-           if tmp<=sum(Pi(S(tt-1),1:tNdx))
-               S(tt) = tNdx;
-               ts(tt) = u(tNdx);
-               trig = 1;
-           else
-               tNdx = tNdx + 1;
-           end
-        end
-    end            
-end
 
 
         
