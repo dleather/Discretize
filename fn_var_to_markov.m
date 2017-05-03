@@ -49,7 +49,7 @@ n = size(N,1);  %number of variables in VAR
 A1bar = inv(A0)*A1;
 A2bar = inv(A0)*A2;
 SIGMAbar = inv(A0)*SIGMA*(inv(A0)');
-SIGMAprocess = SIGMAbar;
+
 sstate_mean = inv(eye(n)-A2bar)*A1bar;
 
 m = 2;  %number std deviations of the VAR covered by grid
@@ -66,8 +66,8 @@ while dif>0.00000001;
     SIGMAprocess_last = SIGMAprocess;
 end;
 %}
+SIGMAprocess = reshape((eye(n^2)-kron(A2bar,A2bar))\SIGMAbar(:),n,n);
 
-SIGMAprocess_last = reshape((eye(n^2)-kron(A2bar,A2bar))\SIGMAbar(:),n,n);
 
 %This block equally spaces grid points bounded by m*(std.deviation of
 %process) on either side of the unconditional mean of the process.  Any
