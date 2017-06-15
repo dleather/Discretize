@@ -31,6 +31,9 @@ SPECIFICATIONS
     N = anisotropic grid, isotropic grid
 
 %}
+clear all
+close all
+
 simACell = cell(15,1);
 cmpACell = cell(15,1);
 errCell = cell(15,1);
@@ -38,11 +41,11 @@ ticMat = NaN(15,1);
 tmpRandCell = cell(15,1);
 for iN=15:15
 %% Global parameters
-nSim = 100;
-nTs = 1000;
+nSim = 10;
+nTs = 10000;
 m = 3;
 llCell = cell(nSim,1);
-nnSim = 100x0;
+nnSim = 100;
 nnTs = 1200;
 
 for method = 1:1
@@ -156,25 +159,18 @@ for method = 1:1
    qq = getStatMarkov(Pi);
    [tsCell,sCell{ii}] = ...
         simMSVarDL(muCell,PhiCell,sigCell,10*nTs,nSim,Pi,qq,0,u(1,:)');
-  %{
-   %Estimate via MLE
+  
+  %Estimate via MLE
    init = [muCell{1};muCell{2};PhiCell{1}(:);PhiCell{2}(:);sqrt(diag(sigCell{1}));...
            sigCell{1}(2,1);sqrt(diag(sigCell{2}));sigCell{2}(2,1);diag(Pi)];
-   lb = -inf * ones(20,1);
-   ub = inf*ones(20,1);
-   lb(end-1:end) = eps*ones(2,1);
-   ub(end-1:end) = ones(2,1);
-   lb(13:18) = zeros(6,1);
-   options = optimoptions(@fmincon,'Display','iter','UseParallel',1,'StepTolerance',1e-06);
+   options = optimoptions(@fminunc,'Display','iter','StepTolerance',1e-06);
    dEstCell = cell(nSim,1);
    dLlMat = NaN(nSim,1);
    estCell = cell(nSim,1);
    llMat = NaN(nSim,1);
-   parpool(4)
    for ii=1:nSim
         [dEstCell{ii}, dLlMat(ii)] = ...
-            fmincon(@(X) nLogLik_1(dTsCell{ii},X,1,2,2),init,A,b,[],[],lb,ub,...
-                [],options);
+            fminunc(@(X) nLogLik_1(dTsCell{ii},X,1,2,2),init,options);
         if dEstCell{ii}(5)>dEstCell{ii}(9)
             dEstCell{ii} = [dEstCell{ii}(3:4);dEstCell{ii}(1:2);...
                             dEstCell{ii}(9:12);dEstCell{ii}(5:8);...
@@ -182,14 +178,14 @@ for method = 1:1
                             dEstCell{ii}(20);dEstCell{ii}(19)];
         end
         [estCell{ii}, llMat(ii)] = ...
-            fmincon(@(X) nLogLik_1(tsCell{ii}(:,end-(nTs+1):end)',X,1,2,2),init,[],[][],[],lb,ub,...
-                [],@(X),options);
+            fminunc(@(X) nLogLik_1(tsCell{ii}(:,end-(nTs+1):end)',X,1,2,2),init,options);
         if estCell{ii}(5)>estCell{ii}(9)
             estCell{ii} = [estCell{ii}(3:4);estCell{ii}(1:2);...
                             estCell{ii}(9:12);estCell{ii}(5:8);...
                             estCell{ii}(16:18);estCell{ii}(13:15);...
                             estCell{ii}(20);estCell{ii}(19)];
         end
+         
    end
    
    
@@ -259,8 +255,8 @@ for method = 1:1
    tmpRandCell{iN} = tmpRand;
    errCell{iN} = simA - cmpA;
 end
-      %
-      
+%
+ 
       
     
    end
