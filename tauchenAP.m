@@ -1,15 +1,15 @@
-%{ 
-SCRIPT :: goTauchenMS.m 
+%{
+SCRIPT :: goTauchenMS_p.m (parallezied for cluster)
 
 This code should accomplish the following :
-    
+
     1) Discretize each specification of MS-VAR
     2) Run Tests
     2) Simultate nSim discrete processes
     3) Simulate nSim continuous processes
     4) Compare means, median and confidence interval of estimates
-   
-TODO
+
+TODOprin
 
     1) Test Asset Pricing capabilities
 
@@ -24,7 +24,7 @@ PARAMETERS
     CovCell :: (Ns x 1) cell of (K x K) covariance matrices
     Pi :: (Ns x Ns) transition matrix s.t. rows sum to unity
     m :: Number of std. dev. from mean to form grid
-    
+
 SPECIFICATIONS
     K = 2,3
     Ns = 2,4,8
@@ -37,23 +37,24 @@ close all
 simACell = cell(15,1);
 cmpACell = cell(15,1);
 errCell = cell(15,1);
+dPiCell = cell(15,1);
 ticMat = NaN(15,1);
 tmpRandCell = cell(15,1);
-for iN=20:20
+for iN=5:20
 %% Global parameters
-nSim = 10;
-nTs = 10000;
+nSim = 120;
+nTs = 1000;
 m = 3;
 llCell = cell(nSim,1);
-nnSim = 300;
-nnTs = 2000;
+nnSim = 1200;
+nnTs = 3000;
 
 for method = 1:1
    %% Set local parameters
    if method==1
         K = 2;
         Ns = 2;
-        N = [iN+4,iN+4;iN+4,iN+4];
+        N = [iN,iN;iN,iN];
         PhiCell = cell(Ns,1);
         PhiCell{1} = [0.5, 0.1; 0, 0.7];
         PhiCell{2} = [0.85, 0; 0.1 , 0.2];
@@ -67,13 +68,13 @@ for method = 1:1
    else
        error('you''ve ran out of methods')
    end
-   
+
    %Check for MSS
    MSS = chkMssMsvar(PhiCell,Pi);
    if MSS==0
        error('MSVAR not MSS')
    end
-   
+
    %% Discretization
    tic;
    prMatKeyCell = cell(Ns,1);
@@ -84,22 +85,20 @@ for method = 1:1
    % Get multivariate grids
    for jj=1:Ns
        [prMatKeyCell{jj},prMatKeyPosCell{jj},prMatIntCell{jj},zBarCell{jj}]...
-           = getGrid(muCell{jj},PhiCell{jj},CovCell{jj},N(:,jj),m,2);
+           = getGrid(muCell{jj},PhiCell{jj},CovCell{jj},N(:,jj),m,1);
    end
-   
+
    % Get Pi_{i,j}
-   parpool(2)
    PiIJCell = cell(Ns,1);
    for ii=1:Ns
        for jj=1:Ns
            PiIJCell{ii,jj} = ...
                getPrMat(muCell{jj},PhiCell{jj},CovCell{jj},prMatIntCell{jj},...
                     prMatKeyCell{ii},size(prMatKeyCell{ii},2),...
-                    size(prMatKeyCell{jj},2),1);
+                    size(prMatKeyCell{jj},2));
        end
    end
-   delete(gcp('nocreate'))
-   
+
    % Mix Pi_{i,j}s to form dPi
    NNVec = NaN(Ns,1);  %Total number of discrete states between regimes
    for ii=1:Ns
@@ -115,7 +114,7 @@ for method = 1:1
            ndx(1:cumNN(ii)) = ii;
        end
    end
-   
+
    dPi = NaN(NN);
    cnt = 1;
    for ii=1:NN
@@ -136,7 +135,7 @@ for method = 1:1
            end
        end
    end
-   ticMat(iN) = toc
+   ticMat(iN) = toc;
    %% Simulate nSim of each discrete & continuous series series
    dTsCell = cell(nSim,1);
    dSCell = cell(nSim,1);
@@ -144,29 +143,32 @@ for method = 1:1
    sCell = cell(nSim,1);
    u = [];
    for ii=1:Ns
-      u = [u;prMatKeyCell{ii}']; 
+      u = [u;prMatKeyCell{ii}'];
    end
-   
+
    %Discrete simulation
-   for ii=1:nSim
+   matlabpool('open',62)
+   parfor ii=1:nSim
         [dTsCell{ii},dSCell{ii}] = simMC(u,dPi,0,nTs,NN);
-        disp(ii)
+        %disp(ii)
    end
-   
+
    %Continuous simulation
    sigCell = cell(Ns,1);
-   for ii=1:Ns
+   parfor ii=1:Ns
       sigCell{ii} = sqrtm(CovCell{ii});
    end
    qq = getStatMarkov(Pi);
    [tsCell,sCell{ii}] = ...
         simMSVarDL(muCell,PhiCell,sigCell,10*nTs,nSim,Pi,qq,0,u(1,:)');
-  
-%% Estimate via MLE
+
+%{
+    %% Estimate via MLE
    init = [muCell{1};muCell{2};PhiCell{1}(:);PhiCell{2}(:);0;0;...
            0;-0.3466;-0.1116;-0.4155;log((1-Pi(1,1))/Pi(1,1));...
            log((1-Pi(2,2))/Pi(2,2))];
-   options = optimoptions(@fminunc,'Display','iter','StepTolerance',1e-06);
+  options = optimoptions(@fminunc,'Display','iter',...
+    'MaxFunEvals',5000,'MaxIter',1000,'Algorithm','quasi-newton');
    dEstCell = cell(nSim,1);
    dLlMat = NaN(nSim,1);
    dExFlag = cell(nSim,1);
@@ -179,7 +181,7 @@ for method = 1:1
    hess = cell(nSim,1);
    estCell = cell(nSim,1);
    llMat = NaN(nSim,1);
-   for ii=1:nSim
+   parfor ii=1:nSim
         [dEstCell{ii}, dLlMat(ii),dExFlag{ii},dOut{ii},dGrad{ii},dHess{ii}] = ...
             fminunc(@(X) nLogLik_1(dTsCell{ii},X,1,2,2),init,options);
         if dEstCell{ii}(5)>dEstCell{ii}(9)
@@ -196,10 +198,10 @@ for method = 1:1
                             estCell{ii}(16:18);estCell{ii}(13:15);...
                             estCell{ii}(20);estCell{ii}(19)];
         end
-         
+
    end
-   
-   
+
+
    resMat = NaN(20,4); %Mean, median, 2.5 prctle, 97.5 prctle
    dResMat = NaN(20,4);
    resMat = [mean(cell2mat(estCell'),2),prctile(cell2mat(estCell'),50,2),...
@@ -208,13 +210,13 @@ for method = 1:1
    dResMat = [mean(cell2mat(dEstCell'),2),prctile(cell2mat(dEstCell'),50,2),...
              prctile(cell2mat(dEstCell'),2.5,2),...
              prctile(cell2mat(dEstCell'),95,2)];
-         
+
     mseVec = NaN(2,2);
     mseVec(1,1) = sum((mean(cell2mat(dEstCell'),2)-init).^2)./(nSim-1);
     mseVec(2,1) = sum((prctile(cell2mat(dEstCell'),50,2)-init).^2)./(nSim-1);
     mseVec(1,2) = sum((mean(cell2mat(estCell'),2)-init).^2)./(nSim-1);
     mseVec(2,2) = sum((prctile(cell2mat(estCell'),50,2)-init).^2)./(nSim-1);
-   
+   save('tmp_062117.mat')
    %}
    %Asset pricing
    a = 0.9; %arbitrary
@@ -230,14 +232,14 @@ for method = 1:1
            cnt = cnt + 1;
        end
    end
-   
-   dAp = (eye(NN)-eta.*dPi)\eta;
-   
+
+   dAp = (eye(NN)-repmat(eta,1,size(dPi,2)).*dPi)\eta;
+
    %simulate asset prices:
    %Choose nA nodes at random from multivariate grid. Simulate nsim series
    % of length 300, construct product of eta for each t, and then average
    % to get prices. Compare to the corresponding discretized prices.
-   nA = 30;
+   nA = 120;
    tmpRand = randperm(size(dPi,1),nA);
    mvGrid = [prMatKeyCell{1},prMatKeyCell{2}];
    mvGridA = mvGrid(:,tmpRand);
@@ -247,7 +249,7 @@ for method = 1:1
       %Simulate nsim=1000 series of  length 300 at point A
       [tsCellA,sCellA] = ...
         simMSVarDL(muCell,PhiCell,sigCell,nnTs,nnSim,Pi,qq,ndx(tmpRand(ii)),u(tmpRand(ii),:)');
-      
+
       %Get Vector of Eta
       etaMat = NaN(nnSim,nnTs);
       for jj=1:nnSim
@@ -259,25 +261,19 @@ for method = 1:1
       end
       prodEta = cumprod(etaMat,2);
       simA(ii) = mean(sum(prodEta,2));
+      simB(ii) = median(sum(prodEta,2));
       disp(ii)
-      disp(simA(ii))  
-      disp(cmpA(ii))
    end
+   dPiCell{iN} = dPi;
    simACell{iN} = simA;
    cmpACell{iN} = cmpA;
    tmpRandCell{iN} = tmpRand;
    errCell{iN} = simA - cmpA;
 end
 %
- 
-      
-    
+
+
+
    end
-   
-   save('assetPriceResults.mat');
-   
-   
-       
-   
-    
- 
+
+   save('assetPriceResults_062217.mat');

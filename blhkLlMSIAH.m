@@ -89,7 +89,7 @@ xiHat_ttm1(:,1) = q;
 for t=1:T
     %get eta
     for m=1:M
-       sig = tSig*(kron(eyeM(:,m),eye(K)));
+       sig = tSig*(kron(eyeM(:,m),eye(K))); %Pick out Sigma
        te = e(t,K*(m-1)+1:K*m);
        eta(m,t) = srp2fac.*(det(sig)^(-0.5)).*exp(-0.5*(te/sig*te'));
     end
